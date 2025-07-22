@@ -73,7 +73,7 @@ def get_or_create_spreadsheet():
             addParents=FOLDER_ID_METADATA,
             supportsAllDrives=True
         ).execute()
-        header = [['Timestamp', 'Nama', 'Nationality', 'Surah', 'Ayat', 'Jenis Tarannum', 'File ID Audio']]
+        header = [['Timestamp', 'Nama', 'Gender', 'Nationality', 'Surah', 'Ayat', 'Jenis Tarannum', 'File ID Audio']] 
         sheets_service.spreadsheets().values().append(
             spreadsheetId=spreadsheet_id,
             range="Sheet1!A1",
@@ -82,7 +82,7 @@ def get_or_create_spreadsheet():
         ).execute()
         return spreadsheet_id
 
-def save_audio_with_metadata(audio_file, jenis_tarannum, nama, nationality, surah, ayat):
+def save_audio_with_metadata(audio_file, jenis_tarannum, nama, gender, nationality, surah, ayat):  
     try:
         if audio_file is None:
             return "Sila rakam atau muat naik fail audio dahulu."
@@ -99,7 +99,7 @@ def save_audio_with_metadata(audio_file, jenis_tarannum, nama, nationality, sura
         os.remove(temp_audio_path)
 
         spreadsheet_id = get_or_create_spreadsheet()
-        row = [[timestamp, nama, nationality, surah, ayat, jenis_tarannum, file_id_audio]]
+        row = [[timestamp, nama, gender, nationality, surah, ayat, jenis_tarannum, file_id_audio]] 
         sheets_service.spreadsheets().values().append(
             spreadsheetId=spreadsheet_id,
             range="Sheet1!A1",
@@ -116,21 +116,23 @@ def save_audio_with_metadata(audio_file, jenis_tarannum, nama, nationality, sura
 # GRADIO UI
 
 jenis_tarannum_list = [
-    "Bayati", "Hijaz", "Nahawand", "Rast", "Sobah", "Sika", "Jiharkah"
+    "Bayati", "Hijaz", "Nahawand", "Rast", "Sobah", "Sika", "Jiharkah", "Ajam", "Kurd"
 ]
 
 with gr.Blocks() as iface:
-    gr.Markdown("# Aplikasi Rakaman Tarannum")
+    gr.Markdown("# **Tarannum Recording App**<br><span style='font-size:12px;'>Aplikasi Rakaman Tarannum</span>")
 
-    nama = gr.Textbox(label="Nama", interactive=True)
-    nationality = gr.Textbox(label="Nationality", interactive=True)
-    surah = gr.Textbox(label="Surah", interactive=True)
-    ayat = gr.Textbox(label="Ayat", interactive=True)
-    jenis_tarannum = gr.Dropdown(label="Jenis Tarannum", choices=jenis_tarannum_list, interactive=True)
-    audio_input = gr.Audio(sources=["microphone", "upload"], type="filepath", label="Rakam atau Muat Naik Fail Audio", interactive=True)
 
-    submit_btn = gr.Button("Hantar", interactive=False)
-    tambah_baru_btn = gr.Button("Tambah Audio Baru", visible=False)
+    nama = gr.Textbox(label="Name | Nama", interactive=True)
+    gender = gr.Dropdown(label="Gender | Jantina", choices=["Male | Lelaki", "Female | Perempuan"], interactive=True)  
+    nationality = gr.Textbox(label="Nationality | Warganegara", interactive=True)
+    surah = gr.Textbox(label="Surah | Surah", interactive=True)
+    ayat = gr.Textbox(label="Verse | Ayat", interactive=True)
+    jenis_tarannum = gr.Dropdown(label="Tarannum Type | Jenis Tarannum", choices=jenis_tarannum_list, interactive=True)
+    audio_input = gr.Audio(sources=["microphone", "upload"], type="filepath", label="Record or Upload Audio File | Rakam atau Muat Naik Fail Audio", interactive=True)
+
+    submit_btn = gr.Button("Submit | Hantar", interactive=False)
+    tambah_baru_btn = gr.Button("Add new Audio | Tambah Audio Baru", visible=False)
     output = gr.Textbox(label="Status")
 
     def check_inputs(nama, nationality, surah, ayat, jenis_tarannum, audio_file):
@@ -143,11 +145,12 @@ with gr.Blocks() as iface:
             return gr.update(interactive=False)
 
     def reset_all():
-        return "", "", "", "", None, None, gr.update(value="Hantar", interactive=False), gr.update(visible=False)
+        return "", "", "", "", None, None, None, gr.update(value="Hantar", interactive=False), gr.update(visible=False)  
+
 
     submit_btn.click(
         fn=save_audio_with_metadata,
-        inputs=[audio_input, jenis_tarannum, nama, nationality, surah, ayat],
+        inputs=[audio_input, jenis_tarannum, nama, gender, nationality, surah, ayat], 
         outputs=output
     ).then(
         lambda: (gr.update(interactive=False), gr.update(visible=True)),
@@ -159,7 +162,7 @@ with gr.Blocks() as iface:
         outputs=[nama, nationality, surah, ayat, jenis_tarannum, audio_input, submit_btn, tambah_baru_btn]
     )
 
-    inputs = [nama, nationality, surah, ayat, jenis_tarannum, audio_input]
+    inputs = [nama, gender, nationality, surah, ayat, jenis_tarannum, audio_input] 
     for inp in inputs:
         inp.change(fn=update_button, inputs=inputs, outputs=submit_btn)
 
