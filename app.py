@@ -116,12 +116,11 @@ def save_audio_with_metadata(audio_file, jenis_tarannum, nama, gender, nationali
 # GRADIO UI
 
 jenis_tarannum_list = [
-    "Bayati", "Hijaz", "Nahawand", "Rast", "Sobah", "Sika", "Jiharkah", "Ajam", "Kurd"
+    "Bayati", "Hijaz", "Nahawand", "Rast", "Soba", "Sikah", "Jiharkah"
 ]
 
 with gr.Blocks() as iface:
     gr.Markdown("# **Tarannum Recording App**<br><span style='font-size:12px;'>Aplikasi Rakaman Tarannum</span>")
-
 
     nama = gr.Textbox(label="Name | Nama", interactive=True)
     gender = gr.Dropdown(label="Gender | Jantina", choices=["Male | Lelaki", "Female | Perempuan"], interactive=True)  
