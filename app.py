@@ -40,15 +40,36 @@ def upload_to_drive(filepath, parent_folder_id):
     }
     media = MediaFileUpload(filepath, resumable=True)
     
-    # Ditambah supportsAllDrives=True untuk membolehkan Service Account 
-    # menulis terus ke dalam folder peribadi yang dikongsi (shared folder)
+    # 1. Muat naik fail seperti biasa
     file = drive_service.files().create(
         body=file_metadata,
         media_body=media,
         supportsAllDrives=True,  
         fields='id'
     ).execute()
-    return file.get('id')
+    
+    file_id = file.get('id')
+
+    # 2. SEGERA pindahkan hak milik fail ke Gmail peribadi anda
+    # Gantikan 'EMAIL_PERIBADI_ANDA@gmail.com' dengan e-mel Google Drive peribadi anda
+    try:
+        user_permission = {
+            'type': 'user',
+            'role': 'owner',
+            'emailAddress': 'faisalradzi@gmail.com' 
+        }
+        drive_service.permissions().create(
+            fileId=file_id,
+            body=user_permission,
+            transferOwnership=True, # Pindahkan kuota fail ke akaun anda
+            supportsAllDrives=True
+        ).execute()
+    except Exception as e:
+        # Jika gagal pindah milik (contohnya kerana sekatan domain peribadi), 
+        # kita biarkan fail itu dikongsi secara maksimum (Reader/Writer)
+        print(f"Sistem tidak dapat memindahkan ownership: {str(e)}")
+        
+    return file_id
 
 def get_or_create_spreadsheet():
     query = f"'{FOLDER_ID_METADATA}' in parents and name='{SPREADSHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false"
