@@ -1,36 +1,47 @@
 import gradio as gr
 import os
 import time
-import base64
 import json
 from datetime import datetime
 import csv
-from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-# ---------- CONFIG ----------
+# ---------- CONFIG CONFIG CONFIG ----------
 
-SCOPES = ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets']
+# Membaca kredensial peribadi dari Environment Variables di Render
+CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+REFRESH_TOKEN = os.getenv("GOOGLE_REFRESH_TOKEN")
 
-# Read credentials from environment variable (base64-encoded)
-SERVICE_ACCOUNT_BASE64 = os.getenv("SERVICE_ACCOUNT_BASE64")
-if not SERVICE_ACCOUNT_BASE64:
-    raise ValueError("Missing SERVICE_ACCOUNT_BASE64 environment variable")
+if not all([CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN]):
+    raise ValueError("Missing OAuth2 environment variables (CLIENT_ID, CLIENT_SECRET, or REFRESH_TOKEN)")
 
-service_account_info = json.loads(base64.b64decode(SERVICE_ACCOUNT_BASE64).decode("utf-8"))
-credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
+# Membina kredensial menggunakan Refresh Token peribadi anda
+creds = Credentials(
+    token=None,  # Google API Client akan menjana access token baharu secara automatik
+    refresh_token=REFRESH_TOKEN,
+    token_uri="https://oauth2.googleapis.com/token",
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    scopes=['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets']
+)
 
-drive_service = build('drive', 'v3', credentials=credentials)
-sheets_service = build('sheets', 'v4', credentials=credentials)
+# Segarkan token secara automatik jika tamat tempoh
+if not creds.valid:
+    creds.refresh(Request())
 
-# === PASTIKAN ANDA MASUKKAN ID FOLDER PERIBADI DI SINI ===
-PARENT_FOLDER_ID = "15Ik9NXwfqbV-WQZEc2IrlyzbnMWLNUiT"       # Cth: Folder 'Tarannum Crowdsource'
+drive_service = build('drive', 'v3', credentials=creds)
+sheets_service = build('sheets', 'v4', credentials=creds)
+
+# === MASUKKAN ID FOLDER GOOGLE DRIVE PERIBADI ANDA DI SINI ===
 FOLDER_ID_AUDIO = "1GaZQADrKiIo8t6PdsKJwQob9CWZ0LJT3"   # Folder untuk simpan .wav
 FOLDER_ID_METADATA = "15jGILIc3T0uwCFdru5qucevShFDQimTu" # Folder untuk simpan Google Sheets
 SPREADSHEET_NAME = "metadata"
 
-# ----------------------------
+# ------------------------------------------
 
 def upload_to_drive(filepath, parent_folder_id):
     filename = os.path.basename(filepath)
@@ -38,38 +49,17 @@ def upload_to_drive(filepath, parent_folder_id):
         'name': filename,
         'parents': [parent_folder_id],
     }
-    media = MediaFileUpload(filepath, resumable=True)
     
-    # 1. Muat naik fail seperti biasa
+    # Muat naik biasa (resumable=False) lebih stabil untuk fail saiz kecil
+    media = MediaFileUpload(filepath, mimetype='audio/wav', resumable=False)
+    
     file = drive_service.files().create(
         body=file_metadata,
         media_body=media,
-        supportsAllDrives=True,  
         fields='id'
     ).execute()
     
-    file_id = file.get('id')
-
-    # 2. SEGERA pindahkan hak milik fail ke Gmail peribadi anda
-    # Gantikan 'EMAIL_PERIBADI_ANDA@gmail.com' dengan e-mel Google Drive peribadi anda
-    try:
-        user_permission = {
-            'type': 'user',
-            'role': 'owner',
-            'emailAddress': 'faisalradzi@gmail.com' 
-        }
-        drive_service.permissions().create(
-            fileId=file_id,
-            body=user_permission,
-            transferOwnership=True, # Pindahkan kuota fail ke akaun anda
-            supportsAllDrives=True
-        ).execute()
-    except Exception as e:
-        # Jika gagal pindah milik (contohnya kerana sekatan domain peribadi), 
-        # kita biarkan fail itu dikongsi secara maksimum (Reader/Writer)
-        print(f"Sistem tidak dapat memindahkan ownership: {str(e)}")
-        
-    return file_id
+    return file.get('id')
 
 def get_or_create_spreadsheet():
     query = f"'{FOLDER_ID_METADATA}' in parents and name='{SPREADSHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false"
