@@ -24,10 +24,10 @@ credentials = service_account.Credentials.from_service_account_info(service_acco
 drive_service = build('drive', 'v3', credentials=credentials)
 sheets_service = build('sheets', 'v4', credentials=credentials)
 
-SHARED_DRIVE_ID = "0AF1duv2II1XOUk9PVA"
-PARENT_FOLDER_ID = "1sxFuBEyTKSdoqOYvzUoLOzjUHR0EJuax"
-FOLDER_ID_AUDIO = "1XHyO-ic-ci91fLE3iM6_5i9f9WSifLCU"
-FOLDER_ID_METADATA = "1BOa2ww75J5ijleNYgRx7fgIkYUe_Af6S"
+# === PASTIKAN ANDA MASUKKAN ID FOLDER PERIBADI DI SINI ===
+PARENT_FOLDER_ID = "15Ik9NXwfqbV-WQZEc2IrlyzbnMWLNUiT"       # Cth: Folder 'Tarannum Crowdsource'
+FOLDER_ID_AUDIO = "1GaZQADrKiIo8t6PdsKJwQob9CWZ0LJT3"   # Folder untuk simpan .wav
+FOLDER_ID_METADATA = "15jGILIc3T0uwCFdru5qucevShFDQimTu" # Folder untuk simpan Google Sheets
 SPREADSHEET_NAME = "metadata"
 
 # ----------------------------
@@ -37,13 +37,11 @@ def upload_to_drive(filepath, parent_folder_id):
     file_metadata = {
         'name': filename,
         'parents': [parent_folder_id],
-        'driveId': SHARED_DRIVE_ID,
     }
     media = MediaFileUpload(filepath, resumable=True)
     file = drive_service.files().create(
         body=file_metadata,
         media_body=media,
-        supportsAllDrives=True,
         fields='id'
     ).execute()
     return file.get('id')
@@ -52,8 +50,6 @@ def get_or_create_spreadsheet():
     query = f"'{FOLDER_ID_METADATA}' in parents and name='{SPREADSHEET_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false"
     results = drive_service.files().list(
         q=query,
-        supportsAllDrives=True,
-        includeItemsFromAllDrives=True,
         fields="files(id, name)"
     ).execute()
     files = results.get('files', [])
@@ -68,11 +64,12 @@ def get_or_create_spreadsheet():
             fields='spreadsheetId'
         ).execute()
         spreadsheet_id = spreadsheet['spreadsheetId']
+        
         drive_service.files().update(
             fileId=spreadsheet_id,
-            addParents=FOLDER_ID_METADATA,
-            supportsAllDrives=True
+            addParents=FOLDER_ID_METADATA
         ).execute()
+        
         header = [['Timestamp', 'Nama', 'Gender', 'Nationality', 'Surah', 'Ayat', 'Jenis Tarannum', 'File ID Audio']] 
         sheets_service.spreadsheets().values().append(
             spreadsheetId=spreadsheet_id,
