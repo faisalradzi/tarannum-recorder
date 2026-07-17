@@ -39,9 +39,13 @@ def upload_to_drive(filepath, parent_folder_id):
         'parents': [parent_folder_id],
     }
     media = MediaFileUpload(filepath, resumable=True)
+    
+    # Ditambah supportsAllDrives=True untuk membolehkan Service Account 
+    # menulis terus ke dalam folder peribadi yang dikongsi (shared folder)
     file = drive_service.files().create(
         body=file_metadata,
         media_body=media,
+        supportsAllDrives=True,  
         fields='id'
     ).execute()
     return file.get('id')
